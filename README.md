@@ -1,9 +1,11 @@
-# Binance orderbook
+# Binance tick data parser
 
-First, make sure you have pybind11 installed
+A simple C++ based parser for binance's official tick data with Python interface
+
+First, make sure you have pybind11 and boost installed
 
 ```
-pip install pybind11
+conda install pybinda11 boost-cpp
 ```
 
 Then, build the extensions
@@ -11,15 +13,8 @@ Then, build the extensions
 python setup.py build_ext --inplace
 ```
 
-You should be able to run the test code by changing `SNAP_PATH` and `UPDATE_PATH` to your own path
+You should be able to run the test code
 
-``` python
-import orderbook
-
-SNAP_PATH = "....../BTCUSDT_T_DEPTH_yyyy-mm-dd_depth_snap.csv"
-UPDATE_PATH = "....../BTCUSDT_T_DEPTH_yyyy-mm-dd_depth_update.csv"
-
-snaps = orderbook.read(SNAP_PATH, UPDATE_PATH, 10000)
-print(snaps.shape, snaps.dtype)
-print(snaps[0])
+``` 
+python test_run.py
 ```
