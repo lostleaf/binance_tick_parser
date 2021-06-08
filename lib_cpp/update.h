@@ -1,105 +1,86 @@
 #pragma once
 
-class Parser {
+#include <cmath>
+
+#include "common.h"
+#include "csv.h"
+
+class BinanceUpdateParser : public OrderBookHolder {
 public:
-  Parser(int price_multiplier) : price_multiplier_(price_multiplier) {}
-
-  std::vector<BookSnapshot> parse(const std::string &snap_path,
-                                  const std::string &update_path) {
-    open_file_check(snap_path, update_path);
-
-    ob_ = read_book();
-    std::vector<BookSnapshot> results;
-
-#ifdef DEBUG_FLAG
-    ob_.debug_print();
-#endif
-
-    char symbol[10], side, update_type[10];
-    int64_t timestamp, first_update_id, last_update_id, pu;
-    double price, qty;
-
-    while (fscanf(input_update_, ROW_FMT.c_str(), symbol, &timestamp,
-                  &first_update_id, &last_update_id, &side, update_type,
-                  &price, &qty, &pu) > 0) {
-      if (last_update_id < ob_.last_update_id)
-        continue;
-
-      auto price_mul = std::llround(price * price_multiplier_);
-      if (ob_.last_update_id < last_update_id) {
-        results.push_back(dump());
-
-#ifdef DEBUG_FLAG
-        // printf("first %ld %ld\n", ob_.last_update_id, last_update_id);
-        // break;
-        if (results.size() % 10000 == 0) {
-          printf("num snaps: %lu\n", results.size());
-          ob_.debug_print();
-          // break;
-        } // debug purpose;
-#endif
-
-        ob_.timestamp = timestamp;
-        ob_.last_update_id = last_update_id;
-      }
-
-      if (side == 'a') {
-        if (qty == 0)
-          ob_.ask.erase(price_mul);
-        else
-          ob_.ask[price_mul] = qty;
-      }
-
-      if (side == 'b') {
-        if (qty == 0)
-          ob_.bid.erase(price_mul);
-        else
-          ob_.bid[price_mul] = qty;
-      }
+  BinanceUpdateParser(const FullSnapshot &snapshot, const std::string &filename,
+                      int price_multiplier)
+      : OrderBookHolder(price_multiplier), csv_parser_(filename) {
+    ob_.timestamp = snapshot.timestamp;
+    ob_.last_update_id = snapshot.last_update_id;
+    ob_.ask.clear();
+    ob_.bid.clear();
+    for (size_t i = 0; i < FullSnapshot::my_levels; i++) {
+      auto ask_price_mul =
+          std::llround(snapshot.ask_prices[i] * price_multiplier_);
+      auto bid_price_mul =
+          std::llround(snapshot.bid_prices[i] * price_multiplier_);
+      ob_.ask[ask_price_mul] = snapshot.ask_sizes[i];
+      ob_.bid[bid_price_mul] = snapshot.bid_sizes[i];
     }
+  }
 
-    return results;
+  std::vector<FullSnapshot> read_full() { return read_all<FullSnapshot>(); }
+
+  std::vector<SimplifiedSnapshot> read_simplified() {
+    return read_all<SimplifiedSnapshot>();
   }
 
 private:
-  int price_multiplier_;
-  OrderBook ob_;
-  FILE *input_snap_, *input_update_;
+  BinanceCsvParser csv_parser_;
 
-  BookSnapshot dump() {
-    BookSnapshot s;
-    s.timestamp = ob_.timestamp;
-    s.last_update_id = ob_.last_update_id;
-    auto ask_iter = ob_.ask.begin();
-    auto bid_iter = ob_.bid.begin();
-    for (size_t i = 0; i < LEVELS; i++, ++ask_iter, ++bid_iter) {
-      s.ask_prices[i] = ask_iter->first / (double)price_multiplier_;
-      s.ask_sizes[i] = ask_iter->second;
-      s.bid_prices[i] = bid_iter->first / (double)price_multiplier_;
-      s.bid_sizes[i] = bid_iter->second;
+  template <typename TSnapshot> std::vector<TSnapshot> read_all() {
+    std::vector<TSnapshot> results;
+    while (csv_parser_.has_row()) {
+      auto ret = read_update_batch();
+      if (ret)
+        results.push_back(dump<TSnapshot>());
     }
-    return s;
+    return results;
   }
 
-  void open_file_check(const std::string &snap_path,
-                       const std::string &update_path) {
-    input_snap_ = fopen(snap_path.c_str(), "r");
-    input_update_ = fopen(update_path.c_str(), "r");
-    auto buf = new char[1000];
+  bool read_update_batch() {
+    // Skip included updates
+    while (csv_parser_.has_row() &&
+           csv_parser_.get_data().last_update_id < ob_.last_update_id)
+      csv_parser_.read_row();
 
-    fscanf(input_snap_, "%s", buf);
-    if (std::string(buf) != HEADER)
-      throw std::runtime_error("Snapshot header not match");
+    if (!csv_parser_.has_row())
+      return false;
 
-    fscanf(input_update_, "%s", buf);
-    if (std::string(buf) != HEADER)
-      throw std::runtime_error("Update header not match");
+    // Check if updates are complete
+    const auto &row = csv_parser_.get_data();
+    if (row.first_update_id > ob_.last_update_id &&
+        row.pu != ob_.last_update_id)
+      throw std::runtime_error("Some updates are missing");
 
-    delete buf;
-  }
+    ob_.last_update_id = csv_parser_.get_data().last_update_id;
+    ob_.timestamp = csv_parser_.get_data().timestamp;
 
-  void close_files() {
-    fclose(input_snap_);
-    fclose(input_update_);
+    while (csv_parser_.has_row() &&
+           csv_parser_.get_data().last_update_id == ob_.last_update_id) {
+
+      auto price_mul = std::llround(row.price * price_multiplier_);
+
+      if (row.side == Side::Ask) {
+        if (row.qty == 0)
+          ob_.ask.erase(price_mul);
+        else
+          ob_.ask[price_mul] = row.qty;
+      }
+
+      if (row.side == Side::Bid) {
+        if (row.qty == 0)
+          ob_.bid.erase(price_mul);
+        else
+          ob_.bid[price_mul] = row.qty;
+      }
+      csv_parser_.read_row();
+    }
+    return true;
   }
 };

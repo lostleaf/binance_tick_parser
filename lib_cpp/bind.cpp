@@ -3,6 +3,7 @@
 #include <pybind11/stl.h>
 
 #include "orderbook.h"
+#include "update.h"
 
 namespace py = pybind11;
 
@@ -31,4 +32,26 @@ PYBIND11_MODULE(ob_ext, m) {
         return py::array_t<SimplifiedSnapshot>(snaps.size(), snaps.data());
       },
       "Read simplified snapshots from csv/zipped csv");
+  m.def(
+      "read_updates_full",
+      [](const FullSnapshot &snapshot, const std::string &snap_path,
+         int price_multiplier) {
+        BinanceUpdateParser u(snapshot, snap_path, price_multiplier);
+        auto snaps = u.read_full();
+
+        // Copy from vector to numpy array, maybe optimize with capsule
+        return py::array_t<FullSnapshot>(snaps.size(), snaps.data());
+      },
+      "Read full snapshots with updates from csv/zipped csv");
+  m.def(
+      "read_updates_simplified",
+      [](const FullSnapshot &snapshot, const std::string &snap_path,
+         int price_multiplier) {
+        BinanceUpdateParser u(snapshot, snap_path, price_multiplier);
+        auto snaps = u.read_simplified();
+
+        // Copy from vector to numpy array, maybe optimize with capsule
+        return py::array_t<SimplifiedSnapshot>(snaps.size(), snaps.data());
+      },
+      "Read simplified snapshots with updates from csv/zipped csv");
 }

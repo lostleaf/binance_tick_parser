@@ -1,16 +1,5 @@
 #pragma once
 
-#include <algorithm>
-#include <cassert>
-#include <cmath>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <iostream>
-#include <map>
-#include <string>
-#include <vector>
-
 #include "common.h"
 #include "csv.h"
 
@@ -48,7 +37,7 @@ private:
 
     while (csv_parser_.has_row() &&
            csv_parser_.get_data().last_update_id == ob_.last_update_id) {
-      auto row = csv_parser_.get_data();
+      const auto &row = csv_parser_.get_data();
       auto price_mul = std::llround(row.price * price_multiplier_);
       if (row.side == Side::Ask)
         ob_.ask[price_mul] = row.qty; // ask
