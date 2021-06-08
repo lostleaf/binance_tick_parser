@@ -7,7 +7,7 @@
 
 namespace py = pybind11;
 
-PYBIND11_MODULE(ob_ext, m) {
+PYBIND11_MODULE(ext, m) {
   PYBIND11_NUMPY_DTYPE(SimplifiedSnapshot, ask_prices, ask_sizes, bid_prices,
                        bid_sizes, timestamp, last_update_id);
   PYBIND11_NUMPY_DTYPE(FullSnapshot, ask_prices, ask_sizes, bid_prices,
@@ -34,9 +34,10 @@ PYBIND11_MODULE(ob_ext, m) {
       "Read simplified snapshots from csv/zipped csv");
   m.def(
       "read_updates_full",
-      [](const FullSnapshot &snapshot, const std::string &snap_path,
+      [](const py::array_t<FullSnapshot> &snapshot, const std::string &snap_path,
          int price_multiplier) {
-        BinanceUpdateParser u(snapshot, snap_path, price_multiplier);
+        auto tmp = snapshot.at(0);
+        BinanceUpdateParser u(tmp, snap_path, price_multiplier);
         auto snaps = u.read_full();
 
         // Copy from vector to numpy array, maybe optimize with capsule
@@ -45,9 +46,10 @@ PYBIND11_MODULE(ob_ext, m) {
       "Read full snapshots with updates from csv/zipped csv");
   m.def(
       "read_updates_simplified",
-      [](const FullSnapshot &snapshot, const std::string &snap_path,
+      [](const py::array_t<FullSnapshot> &snapshot, const std::string &snap_path,
          int price_multiplier) {
-        BinanceUpdateParser u(snapshot, snap_path, price_multiplier);
+        auto tmp = snapshot.at(0);
+        BinanceUpdateParser u(tmp, snap_path, price_multiplier);
         auto snaps = u.read_simplified();
 
         // Copy from vector to numpy array, maybe optimize with capsule
