@@ -1,8 +1,13 @@
+#pragma once
+
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <string>
 #include <vector>
+
+// https://stackoverflow.com/questions/53203970/why-boostbind-insists-pulling-boostplaceholders-into-global-namespace
+#define BOOST_BIND_NO_PLACEHOLDERS
 
 #include <boost/iostreams/copy.hpp>
 #include <boost/iostreams/filter/zstd.hpp>
