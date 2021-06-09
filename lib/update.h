@@ -1,15 +1,31 @@
 #pragma once
 
-#include <cmath>
-
 #include "common.h"
 #include "csv.h"
 
 class BinanceUpdateParser : public OrderBookHolder {
 public:
-  BinanceUpdateParser(const FullSnapshot &snapshot, const std::string &filename,
-                      int price_multiplier)
-      : OrderBookHolder(price_multiplier), csv_parser_(filename) {
+  BinanceUpdateParser(FullSnapshot *anchor_begin, FullSnapshot *anchor_end,
+                      const std::string &filename, int price_multiplier)
+      : OrderBookHolder(price_multiplier), csv_parser_(filename),
+        snap_anchors_(anchor_begin, anchor_end), snap_idx_(0) {
+    init_book_from_snapshot(snap_anchors_[0]);
+  }
+
+  std::vector<FullSnapshot> read_full() { return read_all<FullSnapshot>(); }
+
+  std::vector<SimplifiedSnapshot> read_simplified() {
+    return read_all<SimplifiedSnapshot>();
+  }
+
+  FullSnapshot get_full() { return dump<FullSnapshot>(); }
+
+private:
+  BinanceCsvParser csv_parser_;
+  const std::vector<FullSnapshot> snap_anchors_;
+  size_t snap_idx_;
+
+  void init_book_from_snapshot(const FullSnapshot &snapshot) {
     ob_.timestamp = snapshot.timestamp;
     ob_.last_update_id = snapshot.last_update_id;
     ob_.ask.clear();
@@ -24,21 +40,24 @@ public:
     }
   }
 
-  std::vector<FullSnapshot> read_full() { return read_all<FullSnapshot>(); }
-
-  std::vector<SimplifiedSnapshot> read_simplified() {
-    return read_all<SimplifiedSnapshot>();
-  }
-
-private:
-  BinanceCsvParser csv_parser_;
-
   template <typename TSnapshot> std::vector<TSnapshot> read_all() {
     std::vector<TSnapshot> results;
     while (csv_parser_.has_row()) {
       auto ret = read_update_batch();
-      if (ret)
+      if (ret) { // Successfully updated
         results.push_back(dump<TSnapshot>());
+      } else if (csv_parser_.has_row()) {
+        // Still have rows to read, must loss updates
+        auto &first_id = csv_parser_.get_data().first_update_id;
+        while (snap_idx_ + 1 <= snap_anchors_.size() &&
+               snap_anchors_[snap_idx_ + 1].last_update_id < first_id)
+          snap_idx_++;
+
+        if (snap_anchors_[snap_idx_].last_update_id < first_id)
+          break; // There is no suitalbe anchors left
+        
+        init_book_from_snapshot(snap_anchors_[snap_idx_]);
+      }
     }
     return results;
   }
@@ -55,8 +74,13 @@ private:
     // Check if updates are complete
     const auto &row = csv_parser_.get_data();
     if (row.first_update_id > ob_.last_update_id &&
-        row.pu != ob_.last_update_id)
-      throw std::runtime_error("Some updates are missing");
+        row.pu != ob_.last_update_id) {
+      std::stringstream ss;
+      ss << "Updates lost, row.first_update_id=" << row.first_update_id
+         << ", ob_.last_update_id=" << std::to_string(ob_.last_update_id);
+      std::cerr << ss.str() << std::endl;
+      return false;
+    }
 
     ob_.last_update_id = csv_parser_.get_data().last_update_id;
     ob_.timestamp = csv_parser_.get_data().timestamp;

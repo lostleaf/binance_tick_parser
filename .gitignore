@@ -2,3 +2,4 @@
 *.pyc
 ext.*.so
 build/
+.ipynb_checkpoints
