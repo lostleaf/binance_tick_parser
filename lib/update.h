@@ -42,20 +42,34 @@ private:
 
   template <typename TSnapshot> std::vector<TSnapshot> read_all() {
     std::vector<TSnapshot> results;
+
     while (csv_parser_.has_row()) {
       auto ret = read_update_batch();
+
       if (ret) { // Successfully updated
         results.push_back(dump<TSnapshot>());
-      } else if (csv_parser_.has_row()) {
+        continue;
+      } 
+      
+      if (csv_parser_.has_row()) {
         // Still have rows to read, must loss updates
-        auto &first_id = csv_parser_.get_data().first_update_id;
+
+        auto first_id = csv_parser_.get_data().first_update_id;
         while (snap_idx_ + 1 <= snap_anchors_.size() &&
-               snap_anchors_[snap_idx_ + 1].last_update_id < first_id)
+               snap_anchors_[snap_idx_].last_update_id < first_id) {
+
           snap_idx_++;
+
+#ifdef DEBUG_FLAG
+          std::cerr << "first_update_id: " << first_id << ", last_update_id: "
+                    << snap_anchors_[snap_idx_].last_update_id
+                    << ", snap_idx: " << snap_idx_ << std::endl;
+#endif
+        }
 
         if (snap_anchors_[snap_idx_].last_update_id < first_id)
           break; // There is no suitalbe anchors left
-        
+
         init_book_from_snapshot(snap_anchors_[snap_idx_]);
       }
     }
@@ -76,8 +90,9 @@ private:
     if (row.first_update_id > ob_.last_update_id &&
         row.pu != ob_.last_update_id) {
       std::stringstream ss;
-      ss << "Updates lost, row.first_update_id=" << row.first_update_id
-         << ", ob_.last_update_id=" << std::to_string(ob_.last_update_id);
+      ss << "Warning: Updates lost, row.fuid=" << row.first_update_id
+         << ", row.ts=" << row.timestamp
+         << ", ob_.luid=" << std::to_string(ob_.last_update_id);
       std::cerr << ss.str() << std::endl;
       return false;
     }
