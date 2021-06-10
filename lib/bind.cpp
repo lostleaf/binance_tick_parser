@@ -1,3 +1,4 @@
+#include <pybind11/iostream.h>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -38,7 +39,6 @@ PYBIND11_MODULE(ext, m) {
          const std::string &update_path, int price_multiplier) {
         auto b = snapshot.request();
         auto sptr = (FullSnapshot *)b.ptr;
-        auto tmp = snapshot.at(0);
         BinanceUpdateParser u(sptr, sptr + b.size, update_path,
                               price_multiplier);
         auto snaps = u.read_full();
@@ -46,6 +46,8 @@ PYBIND11_MODULE(ext, m) {
         // Copy from vector to numpy array, maybe optimize with capsule
         return py::array_t<FullSnapshot>(snaps.size(), snaps.data());
       },
+      py::call_guard<py::scoped_ostream_redirect,
+                     py::scoped_estream_redirect>(),
       "Read full snapshots with updates from csv/zipped csv");
   m.def(
       "read_updates_simplified",
@@ -53,7 +55,6 @@ PYBIND11_MODULE(ext, m) {
          const std::string &update_path, int price_multiplier) {
         auto b = snapshot.request();
         auto sptr = (FullSnapshot *)b.ptr;
-        auto tmp = snapshot.at(0);
         BinanceUpdateParser u(sptr, sptr + b.size, update_path,
                               price_multiplier);
         auto snaps = u.read_simplified();
@@ -64,6 +65,8 @@ PYBIND11_MODULE(ext, m) {
             py::array_t<SimplifiedSnapshot>(snaps.size(), snaps.data()),
             py::array_t<FullSnapshot>(1, &last_full_snapshot));
       },
+      py::call_guard<py::scoped_ostream_redirect,
+                     py::scoped_estream_redirect>(),
       "Read simplified snapshots with updates from csv/zipped csv");
   m.def("show_array_info", [](const py::array_t<FullSnapshot> &snapshots) {
     using namespace std;
