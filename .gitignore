@@ -3,3 +3,4 @@
 ext.*.so
 build/
 .ipynb_checkpoints
+*.ipynb
