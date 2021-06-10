@@ -1,0 +1,2 @@
+BTCUSDT_T_DEPTH_2021-06-02_depth_snap.csv.zst filter=lfs diff=lfs merge=lfs -text
+BTCUSDT_T_DEPTH_2021-06-02_depth_update.csv.zst filter=lfs diff=lfs merge=lfs -text
