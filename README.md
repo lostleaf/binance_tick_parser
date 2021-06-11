@@ -11,13 +11,37 @@ conda create -n binance_tick boost-cpp pybind11 numpy
 conda activate binance_tick
 ```
 
-Also make sure you have compilers install. For example, you should install the `build-essential` package under Ubuntu
+Also make sure you have compilers installed. For example, you should install the `build-essential` package under Ubuntu
 
 ```
 sudo apt install build-essential
 ```
 
-Then, build the extensions
+## Download
+
+You can simply clone the repository by
+
+```
+git clone https://github.com/lostleaf/binance_tick_parser.git
+```
+
+Optionally, since the sample data is held by [Git Large File System](https://git-lfs.github.com/), you will have to install the git-lfs extension to run the test code with sample data
+
+```
+curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash
+sudo apt update
+sudo apt install git-lfs
+```
+
+And get the sample data by
+
+```
+git lfs pull
+```
+
+## Run
+
+First, build the extensions
 ```
 python setup.py build_ext --inplace
 ```
