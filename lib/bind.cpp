@@ -3,6 +3,8 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
+// #define DEBUG_FLAG
+
 #include "orderbook.h"
 #include "update.h"
 
