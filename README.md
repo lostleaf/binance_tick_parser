@@ -2,10 +2,13 @@
 
 A simple C++ based parser for binance's official tick data with Python interface
 
+## Environment
+
 First, make sure you have `numpy`, `pybind11` and `boost` installed. You may make a new environment by
 
 ```
 conda create -n binance_tick boost-cpp pybind11 numpy
+conda activate binance_tick
 ```
 
 Also make sure you have compilers install. For example, you should install the `build-essential` package under Ubuntu
